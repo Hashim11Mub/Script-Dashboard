@@ -1,71 +1,56 @@
 import streamlit as st
-import pandas as pd
 import os
+import subprocess
+import pandas as pd
+from glob import glob
 
-def process_uploaded_files(files):
-    """
-    Process the uploaded files and return their paths.
-    """
-    if not files:
-        st.error("No files uploaded!")
-        return None
-    
-    file_paths = {}
-    
-    for uploaded_file in files:
-        file_path = os.path.join("uploaded_data", uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        file_paths[uploaded_file.name] = file_path
-    
-    return file_paths
+# Directory to store uploaded scripts
+script_storage = "scripts/"
+if not os.path.exists(script_storage):
+    os.makedirs(script_storage)
 
+def get_uploaded_scripts():
+    """Return a list of uploaded scripts."""
+    return os.listdir(script_storage)
+
+def delete_script(script_name):
+    """Delete the specified script."""
+    script_path = os.path.join(script_storage, script_name)
+    if os.path.exists(script_path):
+        os.remove(script_path)
+        return f"Deleted script: {script_name}"
+    else:
+        return f"Script {script_name} not found."
+
+# Title of the app
 st.title("Python Script Dashboard")
 
-# File upload section for required data files
-st.header("Upload Required Data Files")
-uploaded_files = st.file_uploader("Upload required data files", type=["xlsx", "rds"], accept_multiple_files=True)
-
-if uploaded_files:
-    file_paths = process_uploaded_files(uploaded_files)
-    if file_paths:
-        st.success("All required files are uploaded")
-
-# Script upload section
+# File uploader for Python scripts
 st.header("Upload and Manage Python Scripts")
-uploaded_script = st.file_uploader("Upload your Python script", type="py")
+uploaded_file = st.file_uploader("Upload your Python script", type="py")
 
-if uploaded_script:
-    script_path = os.path.join("scripts", uploaded_script.name)
+if uploaded_file is not None:
+    script_path = os.path.join(script_storage, uploaded_file.name)
     with open(script_path, "wb") as f:
-        f.write(uploaded_script.getbuffer())
-    st.success(f"Uploaded script: {uploaded_script.name}")
+        f.write(uploaded_file.getbuffer())
+    st.success(f"Uploaded script: {uploaded_file.name}")
     st.write(f"Script saved to: {script_path}")
 
-# Select the script to run
-if 'scripts' in os.listdir():
-    scripts = os.listdir('scripts')
-else:
-    scripts = []
-selected_script = st.selectbox("Select a script to run", scripts)
+# Display uploaded scripts and options to run or delete them
+st.header("Manage Uploaded Scripts")
 
-if selected_script:
-    st.write(f"Selected script: {selected_script}")
+uploaded_scripts = get_uploaded_scripts()
 
-# Running the Script and Displaying Outputs
-st.header("Run Script and View Results")
+if uploaded_scripts:
+    selected_script = st.selectbox("Select a script to run or delete", uploaded_scripts)
 
-if st.button("Run Script"):
-    if not file_paths:
-        st.error("Cannot run script. No data files uploaded.")
-    else:
+    # Run the selected script
+    if st.button("Run Script"):
+        script_path = os.path.join(script_storage, selected_script)
+        st.write(f"Running script: {script_path}")
+        
         try:
-            # Running the Python script using subprocess
-            result = subprocess.run(["python", os.path.join("scripts", selected_script)], 
-                                    capture_output=True, 
-                                    text=True, 
-                                    check=True, 
-                                    env=dict(os.environ, **file_paths))
+            result = subprocess.run(["python", script_path], capture_output=True, text=True, check=True)
             st.write("Script executed successfully!")
             st.text(result.stdout)
         except subprocess.CalledProcessError as e:
@@ -75,19 +60,12 @@ if st.button("Run Script"):
         except Exception as e:
             st.error(f"An unexpected error occurred: {str(e)}")
 
-# Visualize Script Outputs
-st.header("Visualize Script Outputs")
+    # Delete the selected script
+    if st.button("Delete Script"):
+        message = delete_script(selected_script)
+        st.warning(message)
 
-if file_paths:
-    for file_name, file_path in file_paths.items():
-        st.write(f"Processing file: {file_name}")
-        if file_name.endswith((".jpeg", ".png")):
-            st.image(file_path)
-        elif file_name.endswith(".csv"):
-            df = pd.read_csv(file_path)
-            st.dataframe(df)
-        elif file_name.endswith(".xlsx"):
-            df = pd.read_excel(file_path)
-            st.dataframe(df)
 else:
-    st.warning("Cannot display output files. No data files uploaded.")
+    st.write("No scripts uploaded yet.")
+
+# Add more sections to your app as needed
