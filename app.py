@@ -8,7 +8,7 @@ st.title('CTD Data Analysis Dashboard')
 st.sidebar.header("Upload Data Files")
 ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1 (CSV)", type="csv")
 ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2 (CSV)", type="csv")
-env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (CSV)", type="csv")
+env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (Excel)", type="xlsx")
 
 # Load data
 @st.cache_data
@@ -25,7 +25,14 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     
     combined_ctd = pd.concat(ctd_data, ignore_index=True) if ctd_data else pd.DataFrame()
     
-    env_mon_sites = pd.read_csv(env_mon_file) if env_mon_file is not None else pd.DataFrame()
+    env_mon_sites = pd.DataFrame()
+    if env_mon_file is not None:
+        try:
+            env_mon_sites = pd.read_excel(env_mon_file)
+        except ImportError:
+            st.error("Unable to read Excel file. Please install openpyxl or convert the file to CSV.")
+            st.info("To install openpyxl, run: pip install openpyxl")
+            env_mon_sites = pd.DataFrame()
     
     return combined_ctd, env_mon_sites
 
@@ -61,7 +68,7 @@ if ctd_file1 is not None and ctd_file2 is not None and env_mon_file is not None:
 
     elif page == "Site Information":
         st.header("Monitoring Sites Information")
-        if 'Latitude' in env_mon_sites.columns and 'Longitude' in env_mon_sites.columns:
+        if not env_mon_sites.empty and 'Latitude' in env_mon_sites.columns and 'Longitude' in env_mon_sites.columns:
             st.dataframe(env_mon_sites[['SiteName', 'Latitude', 'Longitude']])
         else:
             st.write("Latitude and Longitude data not available in the Environmental Monitoring Sites file.")
