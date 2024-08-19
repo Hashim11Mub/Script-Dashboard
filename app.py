@@ -4,70 +4,61 @@ import subprocess
 import pandas as pd
 from glob import glob
 
-def validate_directory(directory):
+def validate_uploaded_files(files):
     """
-    Validate if the directory exists and contains the required files.
+    Validate if the uploaded files contain the required filenames.
     """
-    if not os.path.exists(directory):
-        return False, "Directory does not exist"
-    
     required_files = ["META_EnvironmentalData.xlsx", "CTDlist010623.rds", "EnvMon_AllSites.xlsx"]
-    missing_files = [file for file in required_files if not os.path.exists(os.path.join(directory, file))]
+    uploaded_filenames = [file.name for file in files]
+    
+    missing_files = [file for file in required_files if file not in uploaded_filenames]
     
     if missing_files:
         return False, f"Missing required files: {', '.join(missing_files)}"
     
-    return True, "Directory is valid and contains all required files"
+    return True, "All required files are uploaded"
 
 st.title("Python Script Dashboard")
 
-# Display current working directory and root directory
-st.write(f"Current working directory: {os.getcwd()}")
-st.write(f"Root directory: {os.path.abspath(os.sep)}")
+# File uploader section for required files
+st.header("Upload Data Files")
+uploaded_files = st.file_uploader("Upload the required data files", type=["xlsx", "rds"], accept_multiple_files=True)
 
-# List available directories
-available_dirs = [d for d in os.listdir() if os.path.isdir(d)]
-st.write("Available directories:")
-st.write(available_dirs)
-
-# Set the directory where the data is located
-data_directory = st.text_input("Enter the directory for data files", "M:/SEZ DES/Science and Monitoring (SM)/Workstreams/Environmental Monitoring/Marine/001DATA")
-
-# Validate the directory
-is_valid, message = validate_directory(data_directory)
-
-# Initialize override to False by default
-override = False
-
-if is_valid:
-    st.success(message)
-else:
-    st.warning(message)
-    override = st.checkbox("Override directory validation")
-    if override:
-        is_valid = True
-        st.warning("Directory validation overridden. Proceed with caution.")
-
-st.write(f"Data directory: {data_directory}")
-
-# Set the script storage path
-script_storage = "scripts/"
-if not os.path.exists(script_storage):
-    os.makedirs(script_storage)
+# Validate the uploaded files
+if uploaded_files:
+    is_valid, message = validate_uploaded_files(uploaded_files)
+    if is_valid:
+        st.success(message)
+        # Save the uploaded files to a temporary directory
+        data_directory = "uploaded_data/"
+        if not os.path.exists(data_directory):
+            os.makedirs(data_directory)
+        
+        for uploaded_file in uploaded_files:
+            with open(os.path.join(data_directory, uploaded_file.name), "wb") as f:
+                f.write(uploaded_file.getbuffer())
+        
+        st.write(f"Data files saved to: {data_directory}")
+    else:
+        st.warning(message)
 
 # Script upload section
 st.header("Upload and Manage Python Scripts")
-uploaded_file = st.file_uploader("Upload your Python script", type="py")
+uploaded_script = st.file_uploader("Upload your Python script", type="py")
 
-if uploaded_file is not None:
-    script_path = os.path.join(script_storage, uploaded_file.name)
+if uploaded_script is not None:
+    script_storage = "scripts/"
+    if not os.path.exists(script_storage):
+        os.makedirs(script_storage)
+    
+    script_path = os.path.join(script_storage, uploaded_script.name)
     with open(script_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    st.success(f"Uploaded script: {uploaded_file.name}")
+        f.write(uploaded_script.getbuffer())
+    st.success(f"Uploaded script: {uploaded_script.name}")
     st.write(f"Script saved to: {script_path}")
 
 # Select the script to run
-scripts = os.listdir(script_storage)
+scripts = os.listdir("scripts/")
 selected_script = st.selectbox("Select a script to run", scripts)
 
 if selected_script:
@@ -77,10 +68,10 @@ if selected_script:
 st.header("Run Script and View Results")
 
 if st.button("Run Script"):
-    if not is_valid and not override:
-        st.error("Cannot run script. The data directory is not valid.")
+    if not uploaded_files:
+        st.error("Cannot run script. No data files uploaded.")
     else:
-        script_path = os.path.join(script_storage, selected_script)
+        script_path = os.path.join("scripts", selected_script)
         
         st.write(f"Running script: {script_path}")
         
@@ -106,8 +97,7 @@ if st.button("Run Script"):
 # Visualize Script Outputs
 st.header("Visualize Script Outputs")
 
-# Check if directory is valid or overridden
-if is_valid or override:
+if uploaded_files:
     output_files = glob(os.path.join(data_directory, "*"))
     st.write(f"Found {len(output_files)} output files.")
 
@@ -122,7 +112,7 @@ if is_valid or override:
             df = pd.read_excel(file)
             st.dataframe(df)
 else:
-    st.warning("Cannot display output files. The data directory is not valid.")
+    st.warning("Cannot display output files. No data files uploaded.")
 
 # Script Persistence and Change Management
 st.header("Script Change Management")
@@ -131,5 +121,5 @@ if st.checkbox("Admin Mode"):
     st.subheader("Manage Scripts")
     script_to_delete = st.selectbox("Select a script to delete", scripts)
     if st.button("Delete Script"):
-        os.remove(os.path.join(script_storage, script_to_delete))
+        os.remove(os.path.join("scripts", script_to_delete))
         st.success(f"Deleted script: {script_to_delete}")
