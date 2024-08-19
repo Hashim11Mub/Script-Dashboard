@@ -25,9 +25,11 @@ uploaded_file = st.file_uploader("Upload your R script", type="R")
 
 if uploaded_file is not None:
     # Save the uploaded script
-    with open(os.path.join(script_storage, uploaded_file.name), "wb") as f:
+    script_path = os.path.join(script_storage, uploaded_file.name)
+    with open(script_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     st.success(f"Uploaded script: {uploaded_file.name}")
+    st.write(f"Script saved to: {script_path}")
 
 # Select the script to run
 scripts = os.listdir(script_storage)
