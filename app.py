@@ -27,12 +27,12 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     
     env_mon_sites = pd.DataFrame()
     if env_mon_file is not None:
-        try:
-            env_mon_sites = pd.read_excel(env_mon_file)
-        except ImportError:
-            st.error("Unable to read Excel file. Please install openpyxl or convert the file to CSV.")
-            st.info("To install openpyxl, run: pip install openpyxl")
-            env_mon_sites = pd.DataFrame()
+        # Read Excel file and convert to CSV in memory
+        excel_data = pd.read_excel(env_mon_file)
+        csv_buffer = io.StringIO()
+        excel_data.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+        env_mon_sites = pd.read_csv(csv_buffer)
     
     return combined_ctd, env_mon_sites
 
