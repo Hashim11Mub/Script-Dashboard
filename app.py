@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import xlrd
 
 st.title('CTD Data Analysis Dashboard')
 
@@ -16,7 +17,11 @@ def read_file(file):
     if file.name.endswith('.csv'):
         return pd.read_csv(file)
     elif file.name.endswith(('.xlsx', '.xls')):
-        return pd.read_excel(file)
+        try:
+            return pd.read_excel(file, engine='xlrd')
+        except:
+            st.warning(f"Unable to read {file.name} directly. Please convert it to CSV.")
+            return None
     else:
         raise ValueError(f"Unsupported file format: {file.name}")
 
@@ -26,21 +31,16 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     ctd_data = []
     for file in [ctd_file1, ctd_file2]:
         if file is not None:
-            try:
-                df = read_file(file)
+            df = read_file(file)
+            if df is not None:
                 df['File'] = file.name
                 ctd_data.append(df)
-            except Exception as e:
-                st.error(f"Error reading {file.name}: {str(e)}")
     
     combined_ctd = pd.concat(ctd_data, ignore_index=True) if ctd_data else pd.DataFrame()
     
     env_mon_sites = pd.DataFrame()
     if env_mon_file is not None:
-        try:
-            env_mon_sites = read_file(env_mon_file)
-        except Exception as e:
-            st.error(f"Error reading Environmental Monitoring Sites file: {str(e)}")
+        env_mon_sites = read_file(env_mon_file)
     
     return combined_ctd, env_mon_sites
 
