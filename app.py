@@ -10,9 +10,9 @@ ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1", type=["csv", "xlsx", "
 ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2", type=["csv", "xlsx", "xls"])
 env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File", type=["csv", "xlsx", "xls"])
 
-st.sidebar.info("Files will be automatically converted to CSV if necessary.")
+st.sidebar.info("You can upload CSV or Excel files. They will be processed automatically.")
 
-def convert_to_csv(file):
+def read_file(file):
     if file.name.endswith('.csv'):
         return pd.read_csv(file)
     elif file.name.endswith(('.xlsx', '.xls')):
@@ -27,7 +27,7 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     for file in [ctd_file1, ctd_file2]:
         if file is not None:
             try:
-                df = convert_to_csv(file)
+                df = read_file(file)
                 df['File'] = file.name
                 ctd_data.append(df)
             except Exception as e:
@@ -38,7 +38,7 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     env_mon_sites = pd.DataFrame()
     if env_mon_file is not None:
         try:
-            env_mon_sites = convert_to_csv(env_mon_file)
+            env_mon_sites = read_file(env_mon_file)
         except Exception as e:
             st.error(f"Error reading Environmental Monitoring Sites file: {str(e)}")
     
