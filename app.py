@@ -1,99 +1,75 @@
 import streamlit as st
-import os
-import subprocess
 import pandas as pd
-from glob import glob
+import matplotlib.pyplot as plt
+import seaborn as sns
+import geopandas as gpd
+import folium
+from streamlit_folium import folium_static
 
-# Directory to store uploaded scripts and data files
-script_storage = "scripts/"
-data_storage = "uploaded_data/"
+# Load data
+@st.cache_data
+def load_data():
+    ctd_files = ['RSP_EM_ABL003_CTD_20220623_Cast.csv', 'RSP_EM_ABL004_CTD_20220623_Cast (1).csv']
+    ctd_data = []
+    for file in ctd_files:
+        df = pd.read_csv(file)
+        df['File'] = file
+        ctd_data.append(df)
+    combined_ctd = pd.concat(ctd_data, ignore_index=True)
+    env_mon_sites = pd.read_excel("EnvMon_AllSites.xlsx")
+    return combined_ctd, env_mon_sites
 
-# Create directories if they don't exist
-if not os.path.exists(script_storage):
-    os.makedirs(script_storage)
+combined_ctd, env_mon_sites = load_data()
 
-if not os.path.exists(data_storage):
-    os.makedirs(data_storage)
+# Streamlit app
+st.title('CTD Data Analysis Dashboard')
 
-def get_uploaded_scripts():
-    """Return a list of uploaded scripts."""
-    return os.listdir(script_storage)
+# Sidebar for navigation
+page = st.sidebar.selectbox("Choose a page", ["Overview", "Temperature Analysis", "Salinity Analysis", "Site Map"])
 
-def delete_script(script_name):
-    """Delete the specified script."""
-    script_path = os.path.join(script_storage, script_name)
-    if os.path.exists(script_path):
-        os.remove(script_path)
-        return f"Deleted script: {script_name}"
+if page == "Overview":
+    st.header("Data Overview")
+    st.write("CTD Data Sample:")
+    st.dataframe(combined_ctd.head())
+    st.write("Environmental Monitoring Sites Sample:")
+    st.dataframe(env_mon_sites.head())
+
+elif page == "Temperature Analysis":
+    st.header("Temperature vs Depth Analysis")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for file in combined_ctd['File'].unique():
+        data = combined_ctd[combined_ctd['File'] == file]
+        ax.scatter(data['Temp °C'], data['Depth m'], label=file)
+    ax.set_xlabel('Temperature (°C)')
+    ax.set_ylabel('Depth (m)')
+    ax.set_title('Temperature vs Depth')
+    ax.legend()
+    ax.invert_yaxis()
+    st.pyplot(fig)
+
+elif page == "Salinity Analysis":
+    st.header("Salinity vs Depth Analysis")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for file in combined_ctd['File'].unique():
+        data = combined_ctd[combined_ctd['File'] == file]
+        ax.scatter(data['Sal psu'], data['Depth m'], label=file)
+    ax.set_xlabel('Salinity (psu)')
+    ax.set_ylabel('Depth (m)')
+    ax.set_title('Salinity vs Depth')
+    ax.legend()
+    ax.invert_yaxis()
+    st.pyplot(fig)
+
+elif page == "Site Map":
+    st.header("Monitoring Sites Map")
+    if 'Latitude' in env_mon_sites.columns and 'Longitude' in env_mon_sites.columns:
+        m = folium.Map(location=[env_mon_sites['Latitude'].mean(), env_mon_sites['Longitude'].mean()], zoom_start=10)
+        for idx, row in env_mon_sites.iterrows():
+            folium.Marker([row['Latitude'], row['Longitude']], popup=row['SiteName']).add_to(m)
+        folium_static(m)
     else:
-        return f"Script {script_name} not found."
+        st.write("Latitude and Longitude data not available in the Environmental Monitoring Sites file.")
 
-def save_uploaded_file(uploaded_file, storage_directory):
-    """Save an uploaded file to the specified directory."""
-    file_path = os.path.join(storage_directory, uploaded_file.name)
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    return file_path
+# You can add more pages and visualizations as needed
 
-# Title of the app
-st.title("Python Script and Data Dashboard")
-
-# File uploader for data files
-st.header("Upload and Manage Data Files")
-uploaded_data_file = st.file_uploader("Upload your data file", type=["csv", "xlsx", "rds"])
-
-if uploaded_data_file is not None:
-    data_file_path = save_uploaded_file(uploaded_data_file, data_storage)
-    st.success(f"Uploaded data file: {uploaded_data_file.name}")
-    st.write(f"Data file saved to: {data_file_path}")
-
-# Display uploaded data files
-st.header("Uploaded Data Files")
-uploaded_data_files = os.listdir(data_storage)
-if uploaded_data_files:
-    for data_file in uploaded_data_files:
-        st.write(data_file)
-else:
-    st.write("No data files uploaded yet.")
-
-# File uploader for Python scripts
-st.header("Upload and Manage Python Scripts")
-uploaded_file = st.file_uploader("Upload your Python script", type="py")
-
-if uploaded_file is not None:
-    script_path = save_uploaded_file(uploaded_file, script_storage)
-    st.success(f"Uploaded script: {uploaded_file.name}")
-    st.write(f"Script saved to: {script_path}")
-
-# Display uploaded scripts and options to run or delete them
-st.header("Manage Uploaded Scripts")
-
-uploaded_scripts = get_uploaded_scripts()
-
-if uploaded_scripts:
-    selected_script = st.selectbox("Select a script to run or delete", uploaded_scripts)
-
-    # Run the selected script
-    if st.button("Run Script"):
-        script_path = os.path.join(script_storage, selected_script)
-        st.write(f"Running script: {script_path}")
-        
-        try:
-            result = subprocess.run(["python", script_path], capture_output=True, text=True, check=True)
-            st.write("Script executed successfully!")
-            st.text(result.stdout)
-        except subprocess.CalledProcessError as e:
-            st.error(f"Error running script: {e.stderr}")
-        except FileNotFoundError:
-            st.error("Python executable not found. Please ensure Python is installed and in the PATH.")
-        except Exception as e:
-            st.error(f"An unexpected error occurred: {str(e)}")
-
-    # Delete the selected script
-    if st.button("Delete Script"):
-        message = delete_script(selected_script)
-        st.warning(message)
-else:
-    st.write("No scripts uploaded yet.")
-
-# Add more sections to your app as needed
+st.sidebar.info("This dashboard provides analysis of CTD data and environmental monitoring sites.")
