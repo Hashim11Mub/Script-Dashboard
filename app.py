@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import geopandas as gpd
+import plotly.express as px
 import folium
 from streamlit_folium import folium_static
 
@@ -36,29 +34,19 @@ if page == "Overview":
 
 elif page == "Temperature Analysis":
     st.header("Temperature vs Depth Analysis")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for file in combined_ctd['File'].unique():
-        data = combined_ctd[combined_ctd['File'] == file]
-        ax.scatter(data['Temp °C'], data['Depth m'], label=file)
-    ax.set_xlabel('Temperature (°C)')
-    ax.set_ylabel('Depth (m)')
-    ax.set_title('Temperature vs Depth')
-    ax.legend()
-    ax.invert_yaxis()
-    st.pyplot(fig)
+    fig = px.scatter(combined_ctd, x='Temp °C', y='Depth m', color='File',
+                     labels={'Temp °C': 'Temperature (°C)', 'Depth m': 'Depth (m)'},
+                     title='Temperature vs Depth')
+    fig.update_yaxes(autorange="reversed")
+    st.plotly_chart(fig)
 
 elif page == "Salinity Analysis":
     st.header("Salinity vs Depth Analysis")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for file in combined_ctd['File'].unique():
-        data = combined_ctd[combined_ctd['File'] == file]
-        ax.scatter(data['Sal psu'], data['Depth m'], label=file)
-    ax.set_xlabel('Salinity (psu)')
-    ax.set_ylabel('Depth (m)')
-    ax.set_title('Salinity vs Depth')
-    ax.legend()
-    ax.invert_yaxis()
-    st.pyplot(fig)
+    fig = px.scatter(combined_ctd, x='Sal psu', y='Depth m', color='File',
+                     labels={'Sal psu': 'Salinity (psu)', 'Depth m': 'Depth (m)'},
+                     title='Salinity vs Depth')
+    fig.update_yaxes(autorange="reversed")
+    st.plotly_chart(fig)
 
 elif page == "Site Map":
     st.header("Monitoring Sites Map")
@@ -69,7 +57,5 @@ elif page == "Site Map":
         folium_static(m)
     else:
         st.write("Latitude and Longitude data not available in the Environmental Monitoring Sites file.")
-
-# You can add more pages and visualizations as needed
 
 st.sidebar.info("This dashboard provides analysis of CTD data and environmental monitoring sites.")
