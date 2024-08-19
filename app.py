@@ -8,7 +8,7 @@ def validate_uploaded_files(files):
     """
     Validate if the uploaded files contain the required filenames.
     """
-    required_files = ["META_EnvironmentalData.xlsx", "CTDlist010623.rds", "EnvMon_AllSites.xlsx"]
+    required_files = ["META_EnvironmentalData.xlsx",  "EnvMon_AllSites.xlsx"]
     uploaded_filenames = [file.name for file in files]
     
     missing_files = [file for file in required_files if file not in uploaded_filenames]
