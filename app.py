@@ -1,17 +1,43 @@
 import streamlit as st
 import pandas as pd
 import io
+import csv
+import zipfile
+import xml.etree.ElementTree as ET
 
 st.title('CTD Data Analysis Dashboard')
 
 # File upload section
 st.sidebar.header("Upload Data Files")
-ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1 (CSV)", type="csv")
-ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2 (CSV)", type="csv")
-env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (CSV)", type="csv")
+ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1 (CSV or Excel)", type=["csv", "xlsx"])
+ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2 (CSV or Excel)", type=["csv", "xlsx"])
+env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (CSV or Excel)", type=["csv", "xlsx"])
 
-st.sidebar.info("Please ensure all files are in CSV format.")
-st.sidebar.warning("If you have Excel files, please convert them to CSV before uploading. Instructions are provided below.")
+st.sidebar.info("You can upload CSV or Excel files. Excel files will be automatically converted to CSV.")
+
+def xlsx_to_csv(xlsx_file):
+    csv_data = io.StringIO()
+    csv_writer = csv.writer(csv_data)
+    
+    with zipfile.ZipFile(xlsx_file) as zf:
+        # Read the shared strings
+        with zf.open('xl/sharedStrings.xml') as f:
+            strings = [el.text for el in ET.parse(f).findall('.//t')]
+        
+        # Read the first sheet
+        with zf.open('xl/worksheets/sheet1.xml') as f:
+            sheet = ET.parse(f)
+            for row in sheet.findall('.//row'):
+                csv_writer.writerow([strings[int(c.text)] if c.text else '' for c in row.findall('c')])
+    
+    csv_data.seek(0)
+    return csv_data
+
+def read_file(file):
+    if file.name.endswith('.xlsx'):
+        return pd.read_csv(xlsx_to_csv(file))
+    else:
+        return pd.read_csv(file)
 
 # Load data
 @st.cache_data
@@ -20,7 +46,7 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     for file in [ctd_file1, ctd_file2]:
         if file is not None:
             try:
-                df = pd.read_csv(file)
+                df = read_file(file)
                 df['File'] = file.name
                 ctd_data.append(df)
             except Exception as e:
@@ -31,7 +57,7 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     env_mon_sites = pd.DataFrame()
     if env_mon_file is not None:
         try:
-            env_mon_sites = pd.read_csv(env_mon_file)
+            env_mon_sites = read_file(env_mon_file)
         except Exception as e:
             st.error(f"Error reading Environmental Monitoring Sites file: {str(e)}")
     
@@ -41,41 +67,42 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
 if ctd_file1 is not None and ctd_file2 is not None and env_mon_file is not None:
     combined_ctd, env_mon_sites = load_data(ctd_file1, ctd_file2, env_mon_file)
 
-    # Sidebar for navigation
-    page = st.sidebar.selectbox("Choose a page", ["Overview", "Temperature Analysis", "Salinity Analysis", "Site Information"])
+    if not env_mon_sites.empty and not combined_ctd.empty:
+        # Sidebar for navigation
+        page = st.sidebar.selectbox("Choose a page", ["Overview", "Temperature Analysis", "Salinity Analysis", "Site Information"])
 
-    if page == "Overview":
-        st.header("Data Overview")
-        st.write("CTD Data Sample:")
-        st.dataframe(combined_ctd.head())
-        st.write("Environmental Monitoring Sites Sample:")
-        st.dataframe(env_mon_sites.head())
+        if page == "Overview":
+            st.header("Data Overview")
+            st.write("CTD Data Sample:")
+            st.dataframe(combined_ctd.head())
+            st.write("Environmental Monitoring Sites Sample:")
+            st.dataframe(env_mon_sites.head())
 
-    elif page == "Temperature Analysis":
-        st.header("Temperature vs Depth Analysis")
-        if 'Depth m' in combined_ctd.columns and 'Temp °C' in combined_ctd.columns:
-            st.line_chart(combined_ctd.groupby('Depth m')['Temp °C'].mean())
-            st.write("This chart shows the average temperature at different depths.")
-        else:
-            st.write("Required columns 'Depth m' and 'Temp °C' not found in the data.")
+        elif page == "Temperature Analysis":
+            st.header("Temperature vs Depth Analysis")
+            if 'Depth m' in combined_ctd.columns and 'Temp °C' in combined_ctd.columns:
+                st.line_chart(combined_ctd.groupby('Depth m')['Temp °C'].mean())
+                st.write("This chart shows the average temperature at different depths.")
+            else:
+                st.write("Required columns 'Depth m' and 'Temp °C' not found in the data.")
 
-    elif page == "Salinity Analysis":
-        st.header("Salinity vs Depth Analysis")
-        if 'Depth m' in combined_ctd.columns and 'Sal psu' in combined_ctd.columns:
-            st.line_chart(combined_ctd.groupby('Depth m')['Sal psu'].mean())
-            st.write("This chart shows the average salinity at different depths.")
-        else:
-            st.write("Required columns 'Depth m' and 'Sal psu' not found in the data.")
+        elif page == "Salinity Analysis":
+            st.header("Salinity vs Depth Analysis")
+            if 'Depth m' in combined_ctd.columns and 'Sal psu' in combined_ctd.columns:
+                st.line_chart(combined_ctd.groupby('Depth m')['Sal psu'].mean())
+                st.write("This chart shows the average salinity at different depths.")
+            else:
+                st.write("Required columns 'Depth m' and 'Sal psu' not found in the data.")
 
-    elif page == "Site Information":
-        st.header("Monitoring Sites Information")
-        if 'Latitude' in env_mon_sites.columns and 'Longitude' in env_mon_sites.columns:
-            st.dataframe(env_mon_sites[['SiteName', 'Latitude', 'Longitude']])
-        else:
-            st.write("Latitude and Longitude data not available in the Environmental Monitoring Sites file.")
+        elif page == "Site Information":
+            st.header("Monitoring Sites Information")
+            if 'Latitude' in env_mon_sites.columns and 'Longitude' in env_mon_sites.columns:
+                st.dataframe(env_mon_sites[['SiteName', 'Latitude', 'Longitude']])
+            else:
+                st.write("Latitude and Longitude data not available in the Environmental Monitoring Sites file.")
 
-    st.sidebar.info("This dashboard provides analysis of CTD data and environmental monitoring sites.")
-
+        st.sidebar.info("This dashboard provides analysis of CTD data and environmental monitoring sites.")
+    else:
+        st.error("Failed to load data. Please check your files and try again.")
 else:
     st.write("Please upload all required files using the sidebar to view the analysis.")
-
