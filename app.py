@@ -7,7 +7,7 @@ from glob import glob
 ##############################################################################################################
 # File Upload and Script Management
 
-st.title("R Script Dashboard")
+st.title("Python Script Dashboard")
 
 # Set the directory where the data is located
 data_directory = st.text_input("Enter the directory for data files", "M:/SEZ DES/Science and Monitoring (SM)/Workstreams/Environmental Monitoring/Marine/001DATA")
@@ -20,8 +20,8 @@ if not os.path.exists(script_storage):
     os.makedirs(script_storage)
 
 # Script upload section
-st.header("Upload and Manage R Scripts")
-uploaded_file = st.file_uploader("Upload your R script", type="R")
+st.header("Upload and Manage Python Scripts")
+uploaded_file = st.file_uploader("Upload your Python script", type="py")
 
 if uploaded_file is not None:
     # Save the uploaded script
@@ -53,14 +53,14 @@ if st.button("Run Script"):
         st.error(f"Script not found: {script_path}")
     else:
         try:
-            # Running the R script using subprocess
-            result = subprocess.run(["Rscript", script_path], capture_output=True, text=True, check=True)
+            # Running the Python script using subprocess
+            result = subprocess.run(["python", script_path], capture_output=True, text=True, check=True)
             st.write("Script executed successfully!")
             st.text(result.stdout)
         except subprocess.CalledProcessError as e:
             st.error(f"Error running script: {e.stderr}")
         except FileNotFoundError:
-            st.error("Rscript executable not found. Please ensure R is installed and Rscript is in the PATH.")
+            st.error("Python executable not found. Please ensure Python is installed and in the PATH.")
         except Exception as e:
             st.error(f"An unexpected error occurred: {str(e)}")
 
