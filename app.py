@@ -1,29 +1,17 @@
 import streamlit as st
 import pandas as pd
 import io
-import xlrd
 
 st.title('CTD Data Analysis Dashboard')
 
 # File upload section
 st.sidebar.header("Upload Data Files")
-ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1", type=["csv", "xlsx", "xls"])
-ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2", type=["csv", "xlsx", "xls"])
-env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File", type=["csv", "xlsx", "xls"])
+ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1 (CSV)", type="csv")
+ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2 (CSV)", type="csv")
+env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (CSV)", type="csv")
 
-st.sidebar.info("You can upload CSV or Excel files. They will be processed automatically.")
-
-def read_file(file):
-    if file.name.endswith('.csv'):
-        return pd.read_csv(file)
-    elif file.name.endswith(('.xlsx', '.xls')):
-        try:
-            return pd.read_excel(file, engine='xlrd')
-        except:
-            st.warning(f"Unable to read {file.name} directly. Please convert it to CSV.")
-            return None
-    else:
-        raise ValueError(f"Unsupported file format: {file.name}")
+st.sidebar.info("Please ensure all files are in CSV format.")
+st.sidebar.warning("If you have Excel files, please convert them to CSV before uploading. Instructions are provided below.")
 
 # Load data
 @st.cache_data
@@ -31,16 +19,21 @@ def load_data(ctd_file1, ctd_file2, env_mon_file):
     ctd_data = []
     for file in [ctd_file1, ctd_file2]:
         if file is not None:
-            df = read_file(file)
-            if df is not None:
+            try:
+                df = pd.read_csv(file)
                 df['File'] = file.name
                 ctd_data.append(df)
+            except Exception as e:
+                st.error(f"Error reading {file.name}: {str(e)}")
     
     combined_ctd = pd.concat(ctd_data, ignore_index=True) if ctd_data else pd.DataFrame()
     
     env_mon_sites = pd.DataFrame()
     if env_mon_file is not None:
-        env_mon_sites = read_file(env_mon_file)
+        try:
+            env_mon_sites = pd.read_csv(env_mon_file)
+        except Exception as e:
+            st.error(f"Error reading Environmental Monitoring Sites file: {str(e)}")
     
     return combined_ctd, env_mon_sites
 
@@ -85,3 +78,4 @@ if ctd_file1 is not None and ctd_file2 is not None and env_mon_file is not None:
 
 else:
     st.write("Please upload all required files using the sidebar to view the analysis.")
+
