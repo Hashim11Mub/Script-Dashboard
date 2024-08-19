@@ -1,43 +1,30 @@
 import streamlit as st
 import pandas as pd
 import io
-import csv
-import zipfile
-import xml.etree.ElementTree as ET
+import openpyxl
 
 st.title('CTD Data Analysis Dashboard')
 
 # File upload section
 st.sidebar.header("Upload Data Files")
-ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1 (CSV or Excel)", type=["csv", "xlsx"])
-ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2 (CSV or Excel)", type=["csv", "xlsx"])
-env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (CSV or Excel)", type=["csv", "xlsx"])
+ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1 (CSV or Excel)", type=["csv", "xlsx", "xls"])
+ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2 (CSV or Excel)", type=["csv", "xlsx", "xls"])
+env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (CSV or Excel)", type=["csv", "xlsx", "xls"])
 
-st.sidebar.info("You can upload CSV or Excel files. Excel files will be automatically converted to CSV.")
-
-def xlsx_to_csv(xlsx_file):
-    csv_data = io.StringIO()
-    csv_writer = csv.writer(csv_data)
-    
-    with zipfile.ZipFile(xlsx_file) as zf:
-        # Read the shared strings
-        with zf.open('xl/sharedStrings.xml') as f:
-            strings = [el.text for el in ET.parse(f).findall('.//t')]
-        
-        # Read the first sheet
-        with zf.open('xl/worksheets/sheet1.xml') as f:
-            sheet = ET.parse(f)
-            for row in sheet.findall('.//row'):
-                csv_writer.writerow([strings[int(c.text)] if c.text else '' for c in row.findall('c')])
-    
-    csv_data.seek(0)
-    return csv_data
+st.sidebar.info("You can upload either CSV or Excel files. Excel files will be automatically converted.")
 
 def read_file(file):
-    if file.name.endswith('.xlsx'):
-        return pd.read_csv(xlsx_to_csv(file))
+    if file.name.lower().endswith(('.xlsx', '.xls')):
+        # For Excel files
+        wb = openpyxl.load_workbook(file)
+        sheet = wb.active
+        data = sheet.values
+        columns = next(data)
+        df = pd.DataFrame(data, columns=columns)
     else:
-        return pd.read_csv(file)
+        # For CSV files
+        df = pd.read_csv(file)
+    return df
 
 # Load data
 @st.cache_data
