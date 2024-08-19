@@ -6,28 +6,41 @@ st.title('CTD Data Analysis Dashboard')
 
 # File upload section
 st.sidebar.header("Upload Data Files")
-ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1 (CSV)", type="csv")
-ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2 (CSV)", type="csv")
-env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File (CSV)", type="csv")
+ctd_file1 = st.sidebar.file_uploader("Upload CTD File 1", type=["csv", "xlsx", "xls"])
+ctd_file2 = st.sidebar.file_uploader("Upload CTD File 2", type=["csv", "xlsx", "xls"])
+env_mon_file = st.sidebar.file_uploader("Upload Environmental Monitoring Sites File", type=["csv", "xlsx", "xls"])
 
-st.sidebar.info("Please convert the Environmental Monitoring Sites Excel file to CSV before uploading.")
+st.sidebar.info("Files will be automatically converted to CSV if necessary.")
+
+def convert_to_csv(file):
+    if file.name.endswith('.csv'):
+        return pd.read_csv(file)
+    elif file.name.endswith(('.xlsx', '.xls')):
+        return pd.read_excel(file)
+    else:
+        raise ValueError(f"Unsupported file format: {file.name}")
 
 # Load data
 @st.cache_data
 def load_data(ctd_file1, ctd_file2, env_mon_file):
     ctd_data = []
-    if ctd_file1 is not None:
-        df1 = pd.read_csv(ctd_file1)
-        df1['File'] = ctd_file1.name
-        ctd_data.append(df1)
-    if ctd_file2 is not None:
-        df2 = pd.read_csv(ctd_file2)
-        df2['File'] = ctd_file2.name
-        ctd_data.append(df2)
+    for file in [ctd_file1, ctd_file2]:
+        if file is not None:
+            try:
+                df = convert_to_csv(file)
+                df['File'] = file.name
+                ctd_data.append(df)
+            except Exception as e:
+                st.error(f"Error reading {file.name}: {str(e)}")
     
     combined_ctd = pd.concat(ctd_data, ignore_index=True) if ctd_data else pd.DataFrame()
     
-    env_mon_sites = pd.read_csv(env_mon_file) if env_mon_file is not None else pd.DataFrame()
+    env_mon_sites = pd.DataFrame()
+    if env_mon_file is not None:
+        try:
+            env_mon_sites = convert_to_csv(env_mon_file)
+        except Exception as e:
+            st.error(f"Error reading Environmental Monitoring Sites file: {str(e)}")
     
     return combined_ctd, env_mon_sites
 
