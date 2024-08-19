@@ -1,8 +1,9 @@
 import streamlit as st
 import os
-import subprocess
 import pandas as pd
 from glob import glob
+import rpy2.robjects as ro
+from rpy2.robjects import r, pandas2ri
 
 ##############################################################################################################
 # File Upload and Script Management
@@ -53,16 +54,13 @@ if st.button("Run Script"):
         st.error(f"Script not found: {script_path}")
     else:
         try:
-            # Running the R script using subprocess
-            result = subprocess.run(["Rscript", script_path], capture_output=True, text=True, check=True)
+            # Running the R script using rpy2
+            with open(script_path, "r") as file:
+                script = file.read()
+                ro.r(script)
             st.write("Script executed successfully!")
-            st.text(result.stdout)
-        except subprocess.CalledProcessError as e:
-            st.error(f"Error running script: {e.stderr}")
-        except FileNotFoundError:
-            st.error("Rscript executable not found. Please ensure R is installed and Rscript is in the PATH.")
         except Exception as e:
-            st.error(f"An unexpected error occurred: {str(e)}")
+            st.error(f"An error occurred: {str(e)}")
 
 ##############################################################################################################
 # Visualize Script Outputs
